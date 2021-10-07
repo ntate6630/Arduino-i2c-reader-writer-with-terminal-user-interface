@@ -536,7 +536,7 @@ int xmodemTransmit(unsigned char *source, int sourceSize)
         {
 
           
-            for(i = 0; i > bufferSize; i++ )
+            for(i = 0; i < bufferSize; i++ )
                 txbuff[3 + i] = 0;
 
                 
