@@ -429,10 +429,10 @@ void writeHexFile()
             for(i = 0; i < 6; i++ )
                 Serial.print(lineOfData[i], HEX);   
         }
-        delay(1000); // put XMODEM transmit function here...
-        
+        delay(1000); 
+        // put XMODEM transmit function here...
+        // xmodemTransmit(unsigned char *source, int sourceSize)
     }
- //   status = xmodemTransmit();
 }
 
 void generateChecksum()
@@ -588,18 +588,36 @@ int xmodemTransmit(unsigned char *source, int sourceSize)
                                         return -1;          // Canceled by remote 
                                     }
                                 }
-                                    break;
-                              case NAK:
-                              default:
-                                  break;
+                                break;
+                            case NAK:
+                            default:
+                                break;
                         }
                     }
                 }
-            }  
+            } 
+            Serial.write(CAN);
+            Serial.write(CAN);
+            Serial.write(CAN);
+            flushInput();
+            return -4; /* xmit error */ 
+        }
+        else 
+        {
+            for(retry = 0; retry < 10; ++retry) 
+            {
+                Serial.write(EOT);
+                if(Serial.available())
+                {
+                    if (c = Serial.read() == ACK) 
+                        break;
+                }
+                flushInput();
+                return (c == ACK)?len:-5;
+            }
         }
     }
 }
-
 
 unsigned int crc16_ccitt(unsigned char *buf, int len )
 {
@@ -617,4 +635,133 @@ unsigned int crc16_ccitt(unsigned char *buf, int len )
             }
         }
     return crc;
+}
+
+static int check(int crc, unsigned char *buf, int sz)
+{
+    if(crc) 
+    {
+        unsigned int crc = crc16_ccitt(buf, sz);
+        unsigned int tcrc = (buf[sz]<<8)+buf[sz+1];
+        if(crc == tcrc)
+            return 1;
+    }
+    else 
+    {
+        int i;
+        unsigned char cks = 0;
+        for(i = 0; i < sz; ++i) 
+        {
+            cks += buf[i];
+        }
+        if(cks == buf[sz])
+            return 1;
+        }
+    return 0;
+}
+
+int xmodemReceive(unsigned char *dest, int destSize)
+{
+    unsigned char rxbuff[1030]; /* 1024 for XModem 1k + 3 head chars + 2 crc + nul */
+    unsigned char *p;
+    int bufferSize, crc = 0;
+    unsigned char trychar = 'C';
+    unsigned char packetNumber = 1;
+    int i, c, len = 0;
+    int retry, retrans = MAXRETRANS;
+    while(1) 
+    {
+        for(retry = 0; retry < 16; ++retry) 
+        {
+            if(trychar) 
+                Serial.write(trychar);
+            if(Serial.available())
+            {    
+                if(c = Serial.read() >= 0) 
+                {
+                    switch(c) 
+                    {
+                        case SOH:
+                            bufferSize = 128;
+                            goto start_recv;
+                        case STX:
+                            bufferSize = 1024;
+                            goto start_recv;
+                        case EOT:
+                            flushInput();
+                            Serial.write(ACK);
+                            return len;         // Normal end.
+                        case CAN:
+                            if(Serial.available())
+                            {
+                                if(c = Serial.read() == CAN) 
+                                {
+                                    flushInput();
+                                    Serial.write(ACK);
+                                    return -1;      // Canceled by remote.
+                                }
+                            break;
+                        default:
+                            break;
+                            }
+                    }
+                }
+            }
+        } 
+        if(trychar == 'C') 
+        { 
+            trychar = NAK; 
+            continue; 
+        }
+        flushInput();
+        Serial.write(CAN);
+        Serial.write(CAN);
+        Serial.write(CAN);
+        return -2;          // Sync error.
+
+start_recv:
+        if(trychar == 'C') 
+            crc = 1;
+        trychar = 0;
+        p = rxbuff;
+        *p++ = c;
+        for(i = 0; i < (bufferSize + (crc?1:0) + 3); ++i) 
+        {
+            if(Serial.available())
+            {
+                if(c = Serial.read() < 0) 
+                    goto reject;
+                *p++ = c;
+            }
+        }
+        if(rxbuff[1] == (unsigned char)(~rxbuff[2]) && (rxbuff[1] == packetNumber || rxbuff[1] == (unsigned char)packetNumber - 1) && check(crc, &rxbuff[3], bufferSize)) 
+        {
+            if(rxbuff[1] == packetNumber) 
+            {
+                register int count = destSize - len;
+                if(count > bufferSize) 
+                    count = bufferSize;
+                if(count > 0) 
+                {
+                    memcpy (&dest[len], &rxbuff[3], count);
+                    len += count;
+                 }
+                 ++packetNumber;
+                 retrans = MAXRETRANS + 1;
+            }
+            if(--retrans <= 0) 
+            {
+                flushInput();
+                Serial.write(CAN);
+                Serial.write(CAN);
+                Serial.write(CAN);
+                return -3;          // Too many retry errors.
+            }
+            Serial.write(ACK);
+            continue;
+        }
+reject:
+        flushInput();
+        Serial.write(NAK);
+    }
 }
