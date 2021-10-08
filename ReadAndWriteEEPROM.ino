@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <Wire.h>
 #include "uCRC16XModemLib.h"
 uCRC16XModemLib crc;
@@ -8,6 +9,7 @@ uCRC16XModemLib crc;
 #define NAK  0x15
 #define CAN  0x18
 #define CTRLZ 0x1A
+#define MAXRETRANS 25
 char receivedChar;
 boolean newData = false, doOnce = false;
 byte deviceAddress;
@@ -530,33 +532,89 @@ int xmodemTransmit(unsigned char *source, int sourceSize)
         txbuff[1] = packetNumber;
         txbuff[2] = ~packetNumber;
         c = sourceSize - len;
-        if (c > bufferSize) 
+        if(c > bufferSize) 
             c = bufferSize;
-        if (c >= 0) 
-        {
-
-          
-            for(i = 0; i < bufferSize; i++ )
-                txbuff[3 + i] = 0;
-
-                
-            memset(txbuff[3], 0, bufferSize);
-
-
-
-
-            
-            if (c == 0) 
+        if(c >= 0) 
+        {                
+            memset(&txbuff[3], 0, bufferSize);
+            if(c == 0) 
             {
                 txbuff[3] = CTRLZ;
             }
+            else 
+            {
+                memcpy(&txbuff[3], &source[len], c);
+                if(c < bufferSize) 
+                    txbuff[3+c] = CTRLZ;
+            }
+            if(crc) 
+            {
+                unsigned int ccrc = crc16_ccitt(&txbuff[3], bufferSize);
+                txbuff[bufferSize+3] = (ccrc>>8) & 0xFF;
+                txbuff[bufferSize+4] = ccrc & 0xFF;
+            }
+            else 
+            {
+                unsigned char ccks = 0;
+                for(i = 3; i < bufferSize + 3; ++i) 
+                {
+                    ccks += txbuff[i];
+                }
+                txbuff[bufferSize +3 ] = ccks;
+            }
+            for(retry = 0; retry < MAXRETRANS; ++retry) 
+            {
+                for(i = 0; i < bufferSize + 4 + (crc?1:0); ++i) 
+                {
+                    Serial.write(txbuff[i]);
+                }
+                if(Serial.available()) 
+                {
+                    if(c = Serial.read() >= 0 ) 
+                    {
+                        switch(c) 
+                        {
+                            case ACK:
+                                ++packetNumber;
+                                len += bufferSize;
+                                goto start_transmission;
+                            case CAN:
+                                if(Serial.available())
+                                {
+                                    if(c = Serial.read() == CAN) 
+                                    {
+                                        Serial.write(ACK);
+                                        flushInput();
+                                        return -1;          // Canceled by remote 
+                                    }
+                                }
+                                    break;
+                              case NAK:
+                              default:
+                                  break;
+                        }
+                    }
+                }
+            }  
         }
-
-
-
-      
     }
+}
 
 
-    
+unsigned int crc16_ccitt(unsigned char *buf, int len )
+{
+    unsigned int crc = 0;
+        while( len-- ) 
+        {
+            int i;
+            crc ^= *(char *)buf++ << 8;
+            for( i = 0; i < 8; ++i ) 
+            {
+                if( crc & 0x8000 )
+                    crc = (crc << 1) ^ 0x1021;
+                else
+                    crc = crc << 1;
+            }
+        }
+    return crc;
 }
