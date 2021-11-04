@@ -837,8 +837,8 @@ int testTransmit(void)
 
 void ReadOutEEPROM()
 {
-    byte data;
-    boolean exitLoop = 0;
+    byte data, dataDigit1, dataDigit2, shiftBuff, i;
+    boolean exitLoop = 0, editMode = 0;
     Serial.print("\x1b[18;018f");  //Set cursor position.
     Serial.print("\x1b[0K");    // Clear line. 
     shiftBuffer = startAddress;
@@ -849,94 +849,63 @@ void ReadOutEEPROM()
         {
             receivedChar = Serial.read();
             if(receivedChar == '+')
-                startAddress ++;
-            if(receivedChar == '-')
-                startAddress --;
-                       
-            if(receivedChar != 0x0D)    //Carriage return 
             {
-                Serial.print("\x1b[18;018f");  //Set cursor position.
-                Serial.print("\x1b[0K");    // Clear line. 
-                shiftBuffer = startAddress;
-                shiftRightAndSplit();
-                displayHexDigits();
-                data = readEEPROM(startAddress, deviceAddress);
-
-
-                
-
-
-
-
-
-                
-                Serial.print("\x1b[18;028f");
-                //Serial.print(data, HEX);           
+                startAddress ++;
+                editMode = 0;
             }
-            else
-                break;
+            if(receivedChar == '-')
+            {
+                startAddress --;
+                editMode = 0;
+            }
+            if(receivedChar > 47 && receivedChar < 58 || receivedChar > 64 && receivedChar < 71 || receivedChar > 96 && receivedChar < 103)
+            {
+                editMode = 1;
+                shiftBuff = shiftBuff << 4;
+                data = int(receivedChar);
+                if(data > 64 && data < 71)
+                    data = data - 55;
+                if(data > 96 && data < 103)
+                    data = data - 87;
+                data = data & 0x0F;
+                shiftBuff = shiftBuff | data;
+                dataDigit1 = shiftBuff >> 4;
+                dataDigit1 = dataDigit1 & 0x0F;
+                dataDigit2 = shiftBuff;
+                dataDigit2 = dataDigit2 & 0x0F;
+                Serial.print("\x1b[18;028f");
+                Serial.print(dataDigit1, HEX);
+                Serial.print(dataDigit2, HEX); 
+                if(i > 0)
+                {
+                    i = 0;
+                    writeEEPROM(startAddress, shiftBuff, deviceAddress);
+                }
+                i++;
+            }  
+            if(editMode == 0)
+            {        
+                i = 0;   
+                if(receivedChar != 0x0D)    //Carriage return 
+                {
+                    Serial.print("\x1b[18;018f");  //Set cursor position.
+                    Serial.print("\x1b[0K");    // Clear line. 
+                    shiftBuffer = startAddress;
+                    shiftRightAndSplit();
+                    displayHexDigits();
+                    data = readEEPROM(startAddress, deviceAddress);
+                    shiftBuff = data;
+                    dataDigit1 = shiftBuff >> 4;
+                    dataDigit1 = dataDigit1 & 0x0F;
+                    dataDigit2 = shiftBuff;
+                    dataDigit2 = dataDigit2 & 0x0F; 
+                    Serial.print("\x1b[18;028f");
+                    Serial.print(dataDigit1, HEX);
+                    Serial.print(dataDigit2, HEX);           
+                }
+                else
+                    break;
+            }
         }
     }while(exitLoop == 0);
-}
-
-
-
-
-void EditData()
-{
-    boolean exitLoop = 0;
-    Serial.print("\x1b[12;018f");  //Set cursor position. 
-    Serial.print("\x1b[0K");    // Clear line.
-    Serial.print("Set Start Address: ");
-    Serial.print("0x");
-    shiftBuffer = startAddress;
-    shiftRightAndSplit();
-    displayHexDigits();
-    while(exitLoop == 0)
-    {
-        if(Serial.available() > 0 )
-        {
-            receivedChar = Serial.read();
-            if(receivedChar != 0x0D)    //Carriage return 
-            {
-                shiftBuffer = shiftBuffer << 4;
-                hexNum = int(receivedChar);
-                if(hexNum > 47 && hexNum < 58 || hexNum > 64 && hexNum < 71 || hexNum > 96 && hexNum < 103)
-                { 
-                    if(hexNum > 64 && hexNum < 71)
-                        hexNum = hexNum - 55;
-                    if(hexNum > 96 && hexNum < 103)
-                        hexNum = hexNum - 87;
-                    hexNum = hexNum & 0x0F;
-                    shiftBuffer = shiftBuffer | hexNum;
-                    shiftRightAndSplit();             // Shift digits left and split in to seperate digits.
-                    Serial.print("\x1b[12;039f");     //Set cursor position. 
-                    displayHexDigits();            
-                }
-            }
-            else
-                break;
-        }
-    }
-    Serial.print("\x1b[12;01f");  // Set cursor position. 
-    Serial.print("\x1b[0K");    // Clear line.
-    Serial.print("\x1b[18;018f");     // Set cursor position.
-    Serial.print("Start Address: 0x");
-    displayHexDigits();
-    startAddress = shiftBuffer;
-}
-
-void shiftRightAndSplit2(byte shiftBuff)
-{
-    byte dataDigit1, dataDigit2;
-    dataDigit1 = shiftBuff >> 4;
-    dataDigit1 = dataDigit1 & 0x0F;
-    dataDigit2 = shiftBuff;
-    dataDigit2 = dataDigit2 & 0x0F; 
-}
-
-void displayTwoHexDigits(byte dataDigit1, byte dataDigit2)
-{
-    Serial.print(dataDigit1, HEX);
-    Serial.print(dataDigit2, HEX);
 }
