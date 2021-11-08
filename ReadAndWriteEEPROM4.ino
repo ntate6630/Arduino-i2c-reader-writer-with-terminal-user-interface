@@ -563,7 +563,7 @@ int xmodemTransmit()
         flushInput();
         return -2;        // No sync
 
-        while(exitLoop = 0)
+        while(exitLoop == 0)
         {
             start_transmission:
             txbuff[0] = SOH; 
