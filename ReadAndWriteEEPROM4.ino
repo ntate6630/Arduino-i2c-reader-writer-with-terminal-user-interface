@@ -382,87 +382,93 @@ void testDataForHexFile()
 byte writeHexFile()
 {
     boolean exitLoop = 0;
-    byte byteCount = 0, i = 0, recordSize;
-    Serial.print("\n");
+    byte byteCount = 0, i = 0, n = 0, recordSize;
+   // Serial.print("\n");
         recordSize = endAddress - startAddress;
         if(recordSize > 0x10)
             recordSize = 0x10;
         highByte = currentAddress >> 8;       //Shift high byte in to low byte position.
         lowByte = currentAddress & 0xFF;
         lineOfData[0] = ':';                  // Start of record ':'
-        Serial.print(lineOfData[0], HEX);
-        Serial.print("[BC]");
-        Serial.print("addr= ");  
+   //     Serial.print(lineOfData[0], HEX);
+   //     Serial.print("[BC]");               // Byte count added below in the FOR loop.
+   //     Serial.print("addr= ");  
         lineOfData[2] = highByte;             // High byte of start addrress. 
-        Serial.print(lineOfData[2], HEX);
+   //     Serial.print(lineOfData[2], HEX);
         lineOfData[3] = lowByte;              // Low byte of start address. 
-        Serial.print(lineOfData[3], HEX);
-        Serial.print(" rectype= "); 
-        lineOfData[4] = 0x00;                 // Record type.   
-        Serial.print(lineOfData[4], HEX);
-        Serial.print(" ");
-            for(i = 0; i < recordSize; i++ )     // Loop until 
+  //      Serial.print(lineOfData[3], HEX);
+  //      Serial.print(" rectype= "); 
+        lineOfData[4] = 0x00;                 // Data record type.   
+  //      Serial.print(lineOfData[4], HEX);
+  //      Serial.print(" ");
+            for(i = 0; i < recordSize; i++ )      
             {   
                 lineOfData[5 + i] = readEEPROM(currentAddress, deviceAddress);
                 byteCount ++;
                 lineOfData[1] = byteCount;
-                Serial.print(lineOfData[5 + i], HEX);
-                Serial.print(" ");
+        //        Serial.print(lineOfData[5 + i], HEX);
+        //        Serial.print(" ");
                 currentAddress++;
                 if(currentAddress >= endAddress)
                 {
-                            Serial.print("currAddr= ");
-                            Serial.print(currentAddress, HEX);
+       //             Serial.print("currAddr= ");
+       //             Serial.print(currentAddress, HEX);
+                    exitLoop = 1;
                     break;
                 } 
             }
-        Serial.print(" BCount= ");
-        Serial.print(byteCount, HEX);
-        Serial.print(" Data=");
+ //       Serial.print(" BCount= ");
+ //       Serial.print(byteCount, HEX);
+ //       Serial.print(" Data=");
         generateChecksum();
-                    verifyData();
-        Serial.print("\n readout= ");
+         //           verifyData();
+    //    Serial.print("\n readout= ");
         for(i = 0; i < byteCount + 6; i ++)
         {
-            Serial.print(lineOfData[i], HEX); 
+              lineOfChar[n] = hex2char(lineOfData[i] >> 4);
+         //     Serial.print(lineOfChar[n], HEX);
+              n++; 
+              lineOfChar[n] = hex2char(lineOfData[i]);
+         //     Serial.print(lineOfChar[n], HEX);
         }
-                                         // Prepares end of file.
     if(exitLoop == 1)
     {                             
-            Serial.print("\n end of file \n");
+    //        Serial.print("\n end of file \n");       // Prepares end of file.
             lineOfData[0] = ':';
             lineOfData[1] = 0x00;
             lineOfData[2] = 0x00;
             lineOfData[3] = 0x00;
             lineOfData[4] = 0x01;
             lineOfData[5] = 0xFF;
+            n = 0;
             for(i = 0; i < 6; i++ )
-            Serial.print(lineOfData[i], HEX);  
-            Serial.print("\n"); 
+            {
+                lineOfChar[n] = hex2char(lineOfData[i] >> 4);
+              //  Serial.print(lineOfChar[n], HEX);
+                n++; 
+                lineOfChar[n] = hex2char(lineOfData[i]);
+             //   Serial.print(lineOfChar[n], HEX);      
+                //     Serial.print(lineOfData[i], HEX); 
+            }
             return 1;
     }
-    else
-        exitLoop = 0;
-    Serial.print("\n last address = ");
-    Serial.print(currentAddress, HEX);
-
-    Serial.print("\n readout= ");
-    for(i = 0; i < byteCount + 6; i ++)
-    {
-        Serial.print(lineOfData[i], HEX); 
-    }
+    else if(exitLoop == 0)
+        return 0;
+ //   Serial.print("\n last address = ");
+ //   Serial.print(currentAddress, HEX);
+ //   Serial.print("\n readout= ");
 }
 
 byte hex2char(byte c)
 {
     byte x;
-    //Serial.print("\nincoming = ");
-    //Serial.print(c, HEX);
-    //Serial.print("\n");
+ //   Serial.print("\nincoming = ");
+ //   Serial.print(c, HEX);
+ //   Serial.print("\n");
     c = c & 0x0F;
     if(c >= 0 && c <= 9)
         x = c + 0x30;
-   if(c >= 0x0A && c <= 0x0F)
+    if(c >= 0x0A && c <= 0x0F)
         x = c + 0x37;
     return x;
 }
@@ -474,17 +480,17 @@ void generateChecksum()
     for(i = 0; i < byteCount + 4; i++ )
     {
         checksum = checksum + lineOfData[1 + i];
-        Serial.print(lineOfData[1 + i], HEX); 
+       // Serial.print(lineOfData[1 + i], HEX); 
     }
     i++;
-        Serial.print("chk_i= ");
-        Serial.print(i, HEX);
-        Serial.print(" \n");
+      //  Serial.print("chk_i= ");
+      //  Serial.print(i, HEX);
+      //  Serial.print(" \n");
     lineOfData[i] = checksum;         // Include checksum byte location.
     lineOfData[i] =~ checksum;              // Ones compliment.
     lineOfData[i] ++;                       // Twos compliment.
-    Serial.print(" Checksum = ");
-    Serial.print(lineOfData[i], HEX);
+   // Serial.print(" Checksum = ");
+  //  Serial.print(lineOfData[i], HEX);
 }
 
 byte verifyData()
@@ -495,25 +501,25 @@ byte verifyData()
         checksum = checksum + lineOfData[1 + i]; 
     i++;
     total = lineOfData[i] + checksum;
-    Serial.print(" VP= ");
-    Serial.print(lineOfData[i], HEX);
+    //Serial.print(" VP= ");
+    //Serial.print(lineOfData[i], HEX);
     if(total != 0)
     {
-        Serial.print(" Not OK " );
+       // Serial.print(" Not OK " );
         return 1;
     }
     else
     {
-        Serial.print(" OK "); 
+      //  Serial.print(" OK "); 
         return 0;  
     }      
 }
 
 int xmodemTransmit()
 {
+    byte exitLoop = 0;
     unsigned char txbuff[134], packetNumber = 1;
     int bufferSize, i, c, retry, crc = -1, len = 0;
-    startAddress = 0x0000;
     currentAddress = startAddress;
     while(1) 
     {
@@ -557,7 +563,7 @@ int xmodemTransmit()
         flushInput();
         return -2;        // No sync
 
-        while(1)
+        while(exitLoop = 0)
         {
             start_transmission:
             txbuff[0] = SOH; 
@@ -576,8 +582,8 @@ int xmodemTransmit()
                 }
                 else 
                 { 
-                    //writeHexFile();
-                    memcpy(&txbuff[3], &lineOfChar[len], c);
+                    exitLoop = writeHexFile();
+                    memcpy(&txbuff[3], &lineOfChar[0], c);
                     if(c < bufferSize) 
                         txbuff[3 + c] = CTRLZ;
                 }
@@ -700,7 +706,7 @@ static int check(int crc, unsigned char *buf, int sz)
 
 int xmodemReceive(unsigned char *dest, int destSize)
 {
-    unsigned char rxbuff[134]; /* 1024 for XModem 1k + 3 head chars + 2 crc + nul */
+    unsigned char rxbuff[134]; 
     unsigned char *p;
     int bufferSize, crc = 0;
     unsigned char trychar = 'C';
