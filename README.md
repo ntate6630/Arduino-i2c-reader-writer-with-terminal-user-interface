@@ -9,3 +9,8 @@
 ### Read EEPROM to a HEX file.
 ### Load HEX file and write to an EEPROM.
 ### Restart and auto detect EEPROM device address.
+
+
+# To Do
+### The xmodem recieve function starting at line 825 is imcomplete and has a strange bug where the return statements sometimes dont return back their values
+### to the testRecieve function at line 
