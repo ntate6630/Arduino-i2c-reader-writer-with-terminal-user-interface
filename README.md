@@ -12,5 +12,8 @@
 
 
 # To Do
-### The xmodem recieve function starting at line 825 is imcomplete and has a strange bug where the return statements sometimes dont return back their values
-### to the testRecieve function at line 
+
+### The "int xmodemRecieve(void)" function starting at line 825 is imcomplete and has a strange bug where the return statements sometimes dont return back their values
+### to the "void testRecieve(void)" function at line 972.
+
+### The user is not finished yet.
