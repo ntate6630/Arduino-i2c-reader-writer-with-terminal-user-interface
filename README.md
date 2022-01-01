@@ -17,9 +17,9 @@
 #### The "int xmodemRecieve(void)" function starting at line 825 is imcomplete and has a strange bug where the return statements sometimes dont return back their values to the "void testRecieve(void)" function at line 972. - FIXED - Added a two second delay because Extraputty terminal is slow to respond.
 
 
-#### A function that converts the 128 byte ASCII data field to raw HEX values and then to Intel HEX records and then writes data to the i2 EEPROM is work in progress.
+#### A function that converts the 128 byte ASCII data field of the XMODEM packet to raw HEX values and then to Intel HEX records and then writes data to the i2 EEPROM is work in progress.
 
-#### The user inteface is not finished yet.
+#### The user inteface is work in progress.
 
 
 
