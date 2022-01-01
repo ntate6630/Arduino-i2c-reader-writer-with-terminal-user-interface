@@ -24,7 +24,6 @@ void setup()
     {
                    // Wait for USB serial connection.
     }
-    Serial1.println("OK");
     flushInput();
     initialise();
 }
@@ -824,7 +823,7 @@ static int check(int crc, const unsigned char *buff, int sz)
 
 int xmodemReceive(void)
 {
-    int bufferSize, crc = 0, i, c, counter = 0, retrans = MAXRETRANS, retry;
+    int bufferSize = 128, crc = 0, i, c, counter = 0, retrans = MAXRETRANS, retry;
     unsigned char rxbuff[133], packetNumber = 1, trychar = 'C', destination[136];
     delay(12000);
     while(1) 
@@ -852,15 +851,13 @@ int xmodemReceive(void)
                     case STX:   
                         flushInput();
                         Serial.write(CAN);      // Abort.
+                        delay(2000);
                         Serial1.print("\n XMODEM 1K not used \n");
                         return -4;              // XMODEM 1K not used.
                     case EOT:
                         flushInput();
                         Serial.write(ACK);
                         Serial1.print("EOT");
-                        Serial1.print("\n");
-                        Serial1.print("Bytes = ");
-                        Serial1.print(counter, DEC);
                         Serial1.print("\n");
                         delay(100);
                         return counter;               // Normal end. 
@@ -980,12 +977,15 @@ void testReceive(void)
         Serial.print(" Xmodem receive error: status: ");
         Serial.print(st, DEC);
         Serial.print("\n");
+        Serial1.print("Error status = \n");
+        Serial1.print(st, DEC);
     }
     else  
     {
         Serial.print(" Xmodem successfully received ");
         Serial.print(st, DEC);
-        Serial.print(" bytes \n");
+        Serial1.print("\n bytes = ");
+        Serial1.print(st, DEC);
     }
 }
 
