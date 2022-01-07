@@ -25,7 +25,7 @@
 
 # Complete
 
-#### System nitialisation, i2c detect. 
+#### System initialisation, i2c detect. 
 #### EEPROM Editor for stepping through address and editing data at an address. 
 #### Set start and End addresses.
 #### Read i2c EEPROM, Convert to Intel HEX records.
