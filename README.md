@@ -11,12 +11,9 @@
 #### Restart and auto detect EEPROM device address.
 
 
-
 # To Do
 
-#### The user inteface is work in progress.
-#### Assembly of the Arduino shield is work in progress. 
-
+#### The user inteface is work in progress. 
 
 
 # Complete
@@ -27,3 +24,5 @@
 #### Read i2c EEPROM, Convert to Intel HEX records.
 #### Convert raw HEX data to ASCII and then to 128 byte blocks to assemble in to packets for XMODEM transmission.
 #### Convert received XMODEM packets to 128 byte blocks then from ASCII to raw Intel HEX data records. Write to i2c EEPROM.  
+#### Assembly of the Arduino shield is complete and hardware tested.
+#### Code is functional.
