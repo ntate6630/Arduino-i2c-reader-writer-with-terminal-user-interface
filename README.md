@@ -14,12 +14,8 @@
 
 # To Do
 
-#### The "int xmodemRecieve(void)" function starting at line 825 is imcomplete and has a strange bug where the return statements sometimes dont return back their values to the "void testRecieve(void)" function at line 972. - FIXED - Added a two second delay because Extraputty terminal is slow to respond.
-
-
-#### A function that converts the 128 byte ASCII data field of the XMODEM packet to raw HEX values and then to Intel HEX records and then writes data to the i2 EEPROM is work in progress.
-
 #### The user inteface is work in progress.
+#### Assembly of the Arduino shield is work in progress. 
 
 
 
@@ -30,3 +26,4 @@
 #### Set start and End addresses.
 #### Read i2c EEPROM, Convert to Intel HEX records.
 #### Convert raw HEX data to ASCII and then to 128 byte blocks to assemble in to packets for XMODEM transmission.
+#### Convert received XMODEM packets to 128 byte blocks then from ASCII to raw Intel HEX data records. Write to i2c EEPROM.  
