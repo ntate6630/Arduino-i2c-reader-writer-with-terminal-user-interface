@@ -11,9 +11,9 @@
 char receivedChar;
 bool newData = false, doOnce = false, rawHex;
 byte deviceAddress, digit1, digit2, digit3, digit4, hexNum, highByte, lowByte;
-unsigned int currentAddress, startAddress = 0x0000, endAddress = 0x0001, byteCounter;
+unsigned int currentAddress, startAddress = 0x0000, endAddress = 0x0001, byteCounter, counter;
 word shiftBuffer;
-byte lineOfData[256], state = 0, stage = 0;
+byte lineOfData[260], state = 0, stage = 0;
 void setup()
 {
     pinMode(6, INPUT);
@@ -328,7 +328,7 @@ void displayHexDigits()
 
 int readHexFileAndWriteEEPROM()
 {
-    byte i, count, byteCount;
+    byte i, byteCount;
 //    Serial1.print(lineOfData[0], HEX);
 //    Serial1.print(" ");
     if(lineOfData[0] == ':')              
@@ -356,6 +356,7 @@ int readHexFileAndWriteEEPROM()
 //                    Serial1.print("\nEnd address = ");
 //                    Serial1.print(endAddress, HEX);
 //                    Serial1.print("\nData = ");
+                    counter++;                    // Keep track of number of bytes written to EEPROM.
                     endAddress++;
 //                    Serial1.print(lineOfData[5 + i], HEX);
                 }
@@ -847,9 +848,10 @@ static int check(int crc, const unsigned char *buff, int sz)
 
 int xmodemReceive(void)
 {
-    int bufferSize = 128, i = 0, j = 0, k = 0, c, counter = 0, crc = 0, retrans = MAXRETRANS, retry, getStatus = 0;
+    int bufferSize = 128, i = 0, j = 0, k = 0, c, crc = 0, retrans = MAXRETRANS, retry, getStatus = 0;
     unsigned char rxbuff[134], packetNumber = 1, trychar = 'C';
     byte temp;
+    counter = 0;
     digitalWrite(7, HIGH);             // LED indicator ON.
     while(digitalRead(6) == 1)        // Read the push button.
     {
@@ -892,7 +894,6 @@ int xmodemReceive(void)
               //          Serial1.print("EOT");
               //          Serial1.print("\n");
                         delay(100);
-                        counter = j;
                         digitalWrite(7, LOW);         //LED indicator OFF.
                         return counter;               // Normal end. 
                     case CAN:
