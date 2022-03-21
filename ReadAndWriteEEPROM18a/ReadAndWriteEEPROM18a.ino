@@ -1,3 +1,5 @@
+// i2C EEPROM Reader/Writer written by Nicholas Tate - September 2001 - March 2022.
+
 #include <stdlib.h>
 #include <Wire.h>
 #define SOH  0x01
@@ -8,12 +10,14 @@
 #define CAN  0x18
 #define CTRLZ 0x1A
 #define MAXRETRANS 25
+
 char receivedChar;
 bool newData = false, doOnce = false, rawHex;
 byte deviceAddress, digit1, digit2, digit3, digit4, hexNum, highByte, lowByte;
 unsigned int currentAddress, startAddress = 0x0000, endAddress = 0x0001, byteCounter, counter;
 word shiftBuffer;
 byte lineOfData[260], state = 0, stage = 0;
+
 void setup()
 {
     pinMode(6, INPUT);
@@ -39,7 +43,7 @@ void flushInput()
     }
 }
 
-void loop()
+void loop()           // User menu and selection of functions.
 {
     if(doOnce == false)
     {
@@ -51,41 +55,43 @@ void loop()
         Serial.print("\t\t6. Find device address\n");
         doOnce = true;
     }
+    
     if(Serial.available() > 0)
     {
         receivedChar = Serial.read();
         newData = true;
     }
+    
     if(newData == true) 
     {
         newData = false;
         switch(receivedChar)
         {
             case '1':
-                setStartAddress();
+                setStartAddress();      //Set start address of data block for serial transmission. Also used to select address when editing EEPROM data.
                 break;
             case '2':
-                setEndAddress();
+                setEndAddress();        // Set end address of data block for serial transmission. 
               break;
             case '3':
-                initTransmit();
+                initTransmit();         // Call functions to read Serial EEPROM and convert to Intel HEX records for transmitting using XMODEM protocol.
                 break;
             case '4':
-                initReceive();
+                initReceive();          // Call functions to receive packets using XMODEM protocol and convert to Intel HEX records to write serial EEPROM.
                 break;
             case '5':
-                editEEPROM();
+                editEEPROM();           // Move through EEPROM address and change values of a selected address.
                 break;
             case '6':
-                Serial.print("Get EEPROM Address");
-                initialise();
+                Serial.print("Get EEPROM Address");    
+                initialise();           // Refresh screen and display clean menus. Detect i2C EEPROM address.
                 doOnce = false;
                 break;
         }
     }
 }
 
-void initialise()
+void initialise()                       // Refresh screen and display clean menus. Detect i2C EEPROM address.
 {    
     Serial.print("\x1B[2J");      //Clear the screen.
     Serial.print("\x1b[01;01f");  //Set cursor position. 
@@ -99,9 +105,9 @@ void initialise()
 byte i2cScan()            //Find the 12c device address.
 {
     byte error;
+    
     for(deviceAddress = 0; deviceAddress < 256; deviceAddress++ )
-    {
-        // The i2c scan uses the return value of the Wire.endTransmisstion to see if a device did acknowledge to the address.
+    {                                           // The i2c scan uses the return value of the Wire.end Transmisstion to see if a device did acknowledge to the address.
         Wire.beginTransmission(deviceAddress);
         error = Wire.endTransmission();
         if(error == 0)
@@ -136,6 +142,7 @@ void writeEEPROM(int endAddress, byte data, int deviceAddress)      // Write dat
 byte readEEPROM(unsigned int currentAddress, int deviceAddress)               // Read data from serial EEPROM.
 {
     byte rdata;
+    
     Wire.beginTransmission(deviceAddress);
     Wire.write((int)(currentAddress >> 8));
     Wire.write((int)(currentAddress & 0xFF));
@@ -143,6 +150,7 @@ byte readEEPROM(unsigned int currentAddress, int deviceAddress)               //
     Wire.requestFrom(deviceAddress, 1);
     if (Wire.available())
         rdata = Wire.read(); 
+        
     //Serial.print("\n device addr = ");
     //Serial.print(deviceAddress, HEX);
     //Serial.print(" eeprom addr = ");
@@ -155,6 +163,7 @@ byte readEEPROM(unsigned int currentAddress, int deviceAddress)               //
 void setStartAddress()
 {
     boolean exitLoop = 0;
+    
     Serial.print("\x1b[12;018f");  //Set cursor position. 
     Serial.print("\x1b[0K");    // Clear line.
     Serial.print("Set Start Address: ");
@@ -199,6 +208,7 @@ void setStartAddress()
 void setEndAddress()
 {
     boolean exitLoop = 0;
+    
     Serial.print("\x1b[12;018f");  //Set cursor position.
     Serial.print("\x1b[0K");    // Clear line. 
     Serial.print("Set End Address: ");
@@ -219,8 +229,10 @@ void setEndAddress()
                 { 
                     if(hexNum > 64 && hexNum < 71)
                         hexNum = hexNum - 55;
+                        
                     if(hexNum > 96 && hexNum < 103)
                         hexNum = hexNum - 87;
+                        
                     hexNum = hexNum & 0x0F;
                     shiftBuffer = shiftBuffer | hexNum;
                     shiftRightAndSplit();             // Shift right and split in to seperate digits.
@@ -240,9 +252,10 @@ void setEndAddress()
     endAddress = shiftBuffer;
 }
 /*
-void readDevice()
+void readDevice()                                                         // Old code used during testing.
 {
     bool exitLoop = false;
+    
     Serial.print("\x1b[12;18f");  // Set cursor position. 
     Serial.print("\x1b[0K");    // Clear line.
     Serial.print("Read from device");
@@ -281,7 +294,7 @@ void readDevice()
     Serial.print("\x1b[0K");    // Clear line.
 }              */
 /*
-void writeDevice()
+void writeDevice()                                                    // Old code used during testing.
 {
     boolean exitLoop = 0;
     Serial.print("\x1b[12;18f");  // Set cursor position. 
@@ -329,8 +342,9 @@ void displayHexDigits()
 int readHexFileAndWriteEEPROM()
 {
     byte i, byteCount;
-//    Serial1.print(lineOfData[0], HEX);
-//    Serial1.print(" ");
+    
+//  Serial1.print(lineOfData[0], HEX);
+//  Serial1.print(" ");
     if(lineOfData[0] == ':')              
     {
         byteCount = lineOfData[1];
@@ -339,45 +353,45 @@ int readHexFileAndWriteEEPROM()
         startAddress = highByte << 8;         // Combine high byte and low byte in 16 bit start address.
         startAddress = startAddress & 0xFF00;
         startAddress = startAddress | lowByte;
-//        Serial1.print(" Start Address = ");
-//        Serial1.print(startAddress, HEX);
+//      Serial1.print(" Start Address = ");
+//      Serial1.print(startAddress, HEX);
         if(verifyData() == 0)                 // Verify the checksum.
         {
-//            Serial1.print("\nChecksum OK");
-//            Serial1.print("\nBytecount = ");
-//            Serial1.print(byteCount, HEX);
-//            Serial1.print("\n ");
+//          Serial1.print("\nChecksum OK");
+//          Serial1.print("\nBytecount = ");
+//          Serial1.print(byteCount, HEX);
+//          Serial1.print("\n ");
             endAddress = startAddress;
             if(lineOfData[4] == 0x00)         // Record type is data.
             {
                 for(i = 0; i < byteCount; i++ ) 
                 {   
-                      writeEEPROM(endAddress, lineOfData[5 + i], deviceAddress);      // Write i2c EEPROM.
-//                    Serial1.print("\nEnd address = ");
-//                    Serial1.print(endAddress, HEX);
-//                    Serial1.print("\nData = ");
+                    writeEEPROM(endAddress, lineOfData[5 + i], deviceAddress);      // Write i2c EEPROM.
+//                  Serial1.print("\nEnd address = ");
+//                  Serial1.print(endAddress, HEX);
+//                  Serial1.print("\nData = ");
                     counter++;                    // Keep track of number of bytes written to EEPROM.
                     endAddress++;
-//                    Serial1.print(lineOfData[5 + i], HEX);
+//                  Serial1.print(lineOfData[5 + i], HEX);
                 }
                 return 0;                         // Indicate a data record is complete.
             }
             if(lineOfData[4] == 0x01 && lineOfData[5] == 0xFF)
             {
-//                Serial1.print(" EOF ");
+//              Serial1.print(" EOF ");
                 return 1;                         // Indicate end of file record.
             }
         }
         else
         {
-//            Serial1.print("\nChecksum error!");
+//          Serial1.print("\nChecksum error!");
             return -1;                        // Indicate checksum error.
         }
     }
     else return -2;
 }    
 /*
-void testDataForHexFile()
+void testDataForHexFile()                                         // Old code used during testing.
 {
     lineOfData[0] = ':';    // Start of line.
     lineOfData[1] = 0x10;   // Byte count 
@@ -408,6 +422,7 @@ byte ReadEEPROMwriteHexFile(bool exitLoop)
 {
     if(byteCounter > 0x10)
         byteCounter = 0x10;
+        
     highByte = currentAddress >> 8;           //Shift high byte in to low byte position.
     lowByte = currentAddress & 0xFF;
     if(stage == 0)                            // Stage 0 - create data record.
@@ -452,7 +467,7 @@ byte ReadEEPROMwriteHexFile(bool exitLoop)
         }
         else
         {
-         //   Serial.print(" CS ");
+         // Serial.print(" CS ");
             lineOfData[state] = generateChecksum();
             stage = 2;
             byteCounter = endAddress - currentAddress;
@@ -518,7 +533,7 @@ byte ReadEEPROMwriteHexFile(bool exitLoop)
         }
         if(state == 5)
         {
-            //       Serial.print(" CS ");
+   //       Serial.print(" CS ");
             lineOfData[5] = generateChecksum();
             stage = 6;
             rawHex = true;
@@ -544,6 +559,7 @@ byte ReadEEPROMwriteHexFile(bool exitLoop)
 byte hex2char(byte c)
 {
     byte x;
+    
     c = c & 0x0F;
     if(c >= 0 && c <= 9)
         x = c + 0x30;
@@ -562,42 +578,45 @@ byte char2hex(byte c)
         return c - 0x57;       
 }
 
-byte generateChecksum()
+byte generateChecksum()                         // Generate checksum for Intel HEX record.
 {
-
     byte i, checksum = 0x00, byteCount;
+    
     byteCount = lineOfData[1];
     for(i = 0; i < byteCount + 4; i++)
     {
         checksum = checksum + lineOfData[1 + i];
     }
+    
     checksum =~ checksum;             // Ones compliment.
     checksum ++;                      // Twos compliment.
     return checksum;
 }
 
-byte verifyData()
+byte verifyData()                               // Verify checksum.
 {
     byte i, checksum = 0x00, total = 0x00, byteCount;
-//    Serial1.print(" checksum_entry ");
+    
+//  Serial1.print(" checksum_entry ");
     byteCount = lineOfData[1];
-//    Serial1.print(" CS_BC = ");
-//    Serial1.print(byteCount, HEX);
-//    Serial1.print(" \n");
+//  Serial1.print(" CS_BC = ");
+//  Serial1.print(byteCount, HEX);
+//  Serial1.print(" \n");
     for(i = 0; i < byteCount + 4; i++)
     {
         checksum = checksum + lineOfData[1 + i]; 
-//        Serial1.print(i, DEC);
-//        Serial1.print(" ");
-//        Serial1.print(checksum, HEX);
-//        Serial1.print(",");
+//      Serial1.print(i, DEC);
+//      Serial1.print(" ");
+//      Serial1.print(checksum, HEX);
+//      Serial1.print(",");
     }
+    
     i++;
     total = lineOfData[i] + checksum;
-//    Serial1.print("i = ");
-//    Serial1.print(i, DEC);
-//    Serial1.print(" T = ");
-//    Serial1.print(total, HEX);
+//  Serial1.print("i = ");
+//  Serial1.print(i, DEC);
+//  Serial1.print(" T = ");
+//  Serial1.print(total, HEX);
     if(total == 0)
     {
         return 0;     // OK.
@@ -608,72 +627,75 @@ byte verifyData()
     }      
 }
 
-int xmodemTransmit()
+int xmodemTransmit()                          // Main function for XMODEM transmit.
 {
     bool exitLoop, addToNextPacket = false;
     byte previousState;
     unsigned char txbuff[134], packetNumber = 1;
     int bufferSize, i, c, retry, crc = -1;
+
+    digitalWrite(7, HIGH);             // LED indicator ON.
+    while(digitalRead(6) == 1)        // Read the push button.
+    {
+                        // Just wait until button is pressed.
+    }
+    
     for(;;) 
     {
         for(retry = 0; retry < 16; ++retry) 
         {
-            digitalWrite(7, HIGH);             // LED indicator ON.
-            while(digitalRead(6) == 1)        // Read the push button.
-            {
-                    // Just wait until button is pressed.
-            }
-            while(Serial.available()) 
+            while(Serial.available())         // Wait for character to be sent from host.
             {
                 c = Serial.read();
             }
-                switch (c) 
-                {
-                    case 'C':
-                        crc = 1;
-                        currentAddress = startAddress;
-                        byteCounter = endAddress - currentAddress;
-                        exitLoop = false;
-                        state = 0;
-                        stage = 0;
-                        goto start_transmission;
-                    case NAK:
-                        crc = 0;
-                        currentAddress = startAddress;
-                        byteCounter = endAddress - currentAddress;
-                        exitLoop = false;
-                        state = 0;
-                        stage = 0;
-                        goto start_transmission;   
-                    case CAN:
-                        delay(100);
-                        while(Serial.available())
-                        {
-                            c = Serial.read();
-                        } 
-                        if(c == CAN)
-                        {
-                            Serial.write(ACK);
-                            flushInput();
-                            digitalWrite(7, LOW);
-                            return -1;        // canceled by remote.
-                        }
-                        break;
+            
+            switch (c) 
+            {
+                case 'C':
+                    crc = 1;
+                    currentAddress = startAddress;
+                    byteCounter = endAddress - currentAddress;
+                    exitLoop = false;
+                    state = 0;
+                    stage = 0;
+                    goto start_transmission;
+                case NAK:
+                    crc = 0;
+                    currentAddress = startAddress;
+                    byteCounter = endAddress - currentAddress;
+                    exitLoop = false;
+                    state = 0;
+                    stage = 0;
+                    goto start_transmission;   
+                case CAN:
+                    delay(100);
+                    while(Serial.available())
+                    {
+                        c = Serial.read();
+                    } 
+                    if(c == CAN)
+                    {
+                        Serial.write(ACK);
+                        flushInput();
+                        digitalWrite(7, LOW);     //Turn OFF LED.
+                        return -1;                // canceled by remote.
+                    }
+                    break;
                     default:
                         break;
-                }   
+            }   
         }
         Serial.write(CAN);
         Serial.write(CAN);
         Serial.write(CAN);
         flushInput();
-        digitalWrite(7, LOW);
-        return -2;            // No sync
+        digitalWrite(7, LOW);     // Turn OFF LED.
+        return -2;                // No sync
         for(;;)
         {
             start_transmission:
-    //        Serial1.print("\nCRC = ");
-    //        Serial1.print(crc, DEC);
+    //      Serial1.print("\nCRC = ");
+    //      Serial1.print(crc, DEC);
             txbuff[0] = SOH; 
             bufferSize = 128;
             txbuff[1] = packetNumber;
@@ -681,10 +703,12 @@ int xmodemTransmit()
             c = (endAddress - startAddress);  
             if(c > bufferSize) 
                 c = bufferSize;
+                
             if(c >= 0 && exitLoop == false) 
             {          
                 for(i = 0; i < bufferSize; i++)     
                     txbuff[3 + i] = 0;
+                    
                 if(c == 0)
                     txbuff[3] = CTRLZ;
                 else
@@ -721,6 +745,7 @@ int xmodemTransmit()
                         }
                         else
                             txbuff[3 + i] = CTRLZ; 
+                            
                         i++;                  
                     }
                 }
@@ -749,7 +774,8 @@ int xmodemTransmit()
                     if(Serial.available()) 
                     {
                         c = Serial.read();
-                    }    
+                    }
+                        
                     if(c >= 0) 
                     {
                         switch(c) 
@@ -780,7 +806,7 @@ int xmodemTransmit()
                 Serial.write(CAN);
                 Serial.write(CAN);
                 flushInput();
-                digitalWrite(7, LOW);
+                digitalWrite(7, LOW);                   // Turn OFF LED.
                 return -4;                              // Transmit error. 
             }
             else 
@@ -794,11 +820,12 @@ int xmodemTransmit()
                     {
                         c = Serial.read();
                     }
+                    
                     if(c == ACK)
                         break;
                 }
                 flushInput();
-                digitalWrite(7, LOW);
+                digitalWrite(7, LOW);                   // Turn OFF LED.
                 return (c == ACK)?(currentAddress - startAddress) : -5;    // No ACK after EOT.
             }
         }   
@@ -806,8 +833,9 @@ int xmodemTransmit()
 }
 
 unsigned int crc16_ccitt(const unsigned char *buffer, int len )
-{
+{                                                                     // Generate CRC16 checksum.
     unsigned int crc = 0;
+    
     while(len --) 
     {
         int i;
@@ -824,7 +852,7 @@ unsigned int crc16_ccitt(const unsigned char *buffer, int len )
 }   
 
 static int check(int crc, const unsigned char *buff, int sz)
-{
+{                                                                       // Check CRC16 checksum.
     if(crc) 
     {
         unsigned short crc = crc16_ccitt(buff, sz);
@@ -846,17 +874,19 @@ static int check(int crc, const unsigned char *buff, int sz)
     return 0;
 }
 
-int xmodemReceive(void)
+int xmodemReceive(void)                             // Main function for XMODEM receive.
 {
     int bufferSize = 128, i = 0, j = 0, k = 0, c, crc = 0, retrans = MAXRETRANS, retry, getStatus = 0;
     unsigned char rxbuff[134], packetNumber = 1, trychar = 'C';
     byte temp;
+    
     counter = 0;
     digitalWrite(7, HIGH);             // LED indicator ON.
     while(digitalRead(6) == 1)        // Read the push button.
     {
                     // Just wait until button is pressed.
     }
+    
     state = 0;
     while(1) 
     {
@@ -864,51 +894,52 @@ int xmodemReceive(void)
         {   
             if(trychar)
             {
-                Serial.write(trychar);
-         //       Serial1.print("try = ");
-         //       Serial1.print(trychar);
-         //       Serial1.print(" \n");
+                Serial.write(trychar);        //Send character 'C' to host.
+       //       Serial1.print("try = ");
+       //       Serial1.print(trychar);
+       //       Serial1.print(" \n");
             }
             delay(100);
-            if(Serial.available())
+            if(Serial.available())                  // Read in characters from host.
             {
                 c = Serial.read();
                 switch (c)
                 {
-                    case SOH:
-             //           Serial1.print("SOH");
-             //           Serial1.print(" \n");
+                    case SOH:                       // Start Of Header. First byte in XMODEM packet.
+           //           Serial1.print("SOH");
+           //           Serial1.print(" \n");
                         bufferSize = 128;
-                        j = 0;
+                        j = 0;                      // Set packet byte count to zero.
                         goto start_reception;
-                    case STX:   
+                    case STX:                       // XMODEM 1K not used.
                         flushInput();
-                        Serial.write(CAN);      // Abort.
+                        Serial.write(CAN);          // Abort.
                         delay(2000);
             //            Serial1.print("\n XMODEM 1K not used \n");
                         digitalWrite(7, LOW);
-                        return -4;              // XMODEM 1K not used.
-                    case EOT:
+                        return -4;                  // XMODEM 1K not used.
+                    case EOT:                       // End Of Transmission.
                         flushInput();
                         Serial.write(ACK);
-              //          Serial1.print("EOT");
-              //          Serial1.print("\n");
+            //          Serial1.print("EOT");
+            //          Serial1.print("\n");
                         delay(100);
-                        digitalWrite(7, LOW);         //LED indicator OFF.
-                        return counter;               // Normal end. 
-                    case CAN:
+                        digitalWrite(7, LOW);         // Turn LED indicator OFF.
+                        return counter;               // Normal end. No errors, return with number of data bytes written to EEPROM.
+                    case CAN:                         // Cancel in an error condition.
                         if(Serial.available()) 
                         {
                             c = Serial.read(); 
                             if(c == CAN) 
                             {
-                                Serial.write(ACK);
+                                Serial.write(ACK);    // Acknowldege the host sender has canceled.
                                 flushInput();
-                     //           Serial1.print("Canceled by remote");
-                     //           Serial1.print(" \n");
+                   //           Serial1.print("Canceled by remote");
+                   //           Serial1.print(" \n");
                                 delay(100);
                                 digitalWrite(7, LOW);
-                                return -1;                // Canceled by remote. 
+                                return -1;                // Canceled by remote.
+                                 
                             }
                         }
                         break;
@@ -922,121 +953,132 @@ int xmodemReceive(void)
             trychar = NAK; 
             continue; 
         }
+        
         flushInput();
         Serial.write(CAN);
         Serial.write(CAN);
         Serial.write(CAN);
-    //    Serial1.print("Error \n");
-        digitalWrite(7, LOW);
+  //    Serial1.print("Error \n");
+        digitalWrite(7, LOW);                           // Turn LED OFF.
         return -2;                                      // Sync error. 
+        
 start_reception:   
         if(trychar == 'C') 
             crc = 1;  
         trychar = 0; 
-   //     Serial1.print("\n CRC = ");
-   //     Serial1.print(crc, HEX);
-   //     Serial1.print(" \n"); 
-   //     Serial1.print("firstbyte = ");
-   //     Serial1.print(c, HEX);
-   //     Serial1.print("\n");
+ //     Serial1.print("\n CRC = ");
+ //     Serial1.print(crc, HEX);
+ //     Serial1.print(" \n"); 
+ //     Serial1.print("firstbyte = ");
+ //     Serial1.print(c, HEX);
+ //     Serial1.print("\n");
         rxbuff[0] = c;
         for (i = 0;  i < (bufferSize + (crc ? 1 : 0) + 3); ++i) 
         {
             if(Serial.available())
                 rxbuff[1 + i] = Serial.read();          
-        }    
+        } 
+           
         if(rxbuff[1] == (unsigned char)(~rxbuff[2]) && (rxbuff[1] == packetNumber || rxbuff[1] == (unsigned char)packetNumber - 1) && check(crc, &rxbuff[3], bufferSize))
         {   
             if(rxbuff[1] == packetNumber)  
             { 
-       //         Serial1.print(" Packet = ");
-       //         Serial1.print(packetNumber, DEC);
-       //         Serial1.print("\n");
+    //          Serial1.print(" Packet = ");
+    //          Serial1.print(packetNumber, DEC);
+    //          Serial1.print("\n");
 
                 while(getStatus == 0)
                 {
                     if(3 + j > bufferSize + 2)
                         goto get_next_packet;
+                        
                     if(state == 0)
                     {   
-            //            Serial1.print(" state = 0 ");                  
+          //            Serial1.print(" state = 0 ");                  
                         if(rxbuff[3 + j] == ':')
                         {
                             k = 0;
                             lineOfData[k] = rxbuff[3 + j];
-            //                Serial1.print(lineOfData[k], HEX);
-            //                Serial1.print("\n");
-            //                Serial1.print("J1 = ");
-            //                Serial1.print(j, DEC);
-            //                Serial1.print(", ");
-            //                Serial1.print("K = ");
-            //                Serial1.print(k, DEC); 
-            //                Serial1.print("\n");
+          //                Serial1.print(lineOfData[k], HEX);
+          //                Serial1.print("\n");
+          //                Serial1.print("J1 = ");
+          //                Serial1.print(j, DEC);
+          //                Serial1.print(", ");
+          //                Serial1.print("K = ");
+          //                Serial1.print(k, DEC); 
+          //                Serial1.print("\n");
                             j++;
                             k++;
                             state = 1;
                         }
                     }
+                    
                     if(3 + j > bufferSize + 2)                       
                         goto get_next_packet;
+                        
                     if(state == 1) 
                     {
-           //             Serial1.print(" state = 1 ");
-           //             Serial1.print("J = ");
-           //             Serial1.print(j, DEC);
-           //             Serial1.print(", ");
-           //             Serial1.print(rxbuff[3 + j], HEX);
+     //                 Serial1.print(" state = 1 ");
+         //             Serial1.print("J = ");
+         //             Serial1.print(j, DEC);
+         //             Serial1.print(", ");
+         //             Serial1.print(rxbuff[3 + j], HEX);
                         lineOfData[k] = char2hex(rxbuff[3 + j]) << 4 & 0xF0;
                         j++;
-            //            Serial1.print(",");
-            //            Serial1.print(rxbuff[3 + j], HEX);
+          //            Serial1.print(",");
+          //            Serial1.print(rxbuff[3 + j], HEX);
                         state = 2;
                     }  
+                    
                     if(3 + j > bufferSize + 2)  
                         goto get_next_packet;
+                        
                     if(state == 2)
                     {
-            //            Serial1.print(" state = 2 ");
-            //            Serial1.print("J = ");
-            //            Serial1.print(j, DEC);
-            //            Serial1.print(", "); 
+      //                Serial1.print(" state = 2 ");
+          //            Serial1.print("J = ");
+          //            Serial1.print(j, DEC);
+          //            Serial1.print(", "); 
                         temp = char2hex(rxbuff[3 + j]) & 0x0F;
                         lineOfData[k] = lineOfData[k] | temp;
-            //            Serial1.print(" D = ");
-            //            Serial1.print(lineOfData[k], HEX);
-            //            Serial1.print(" ");
-            //            Serial1.print("K = ");
-            //            Serial1.print(k, DEC);
-            //            Serial1.print("\n");
+          //            Serial1.print(" D = ");
+          //            Serial1.print(lineOfData[k], HEX);
+          //            Serial1.print(" ");
+          //            Serial1.print("K = ");
+          //            Serial1.print(k, DEC);
+          //            Serial1.print("\n");
                         state = 3;
                     }
                     if(3 + j > bufferSize + 2)
                         goto get_next_packet;
+                        
                     if(state == 3)
                     {     
-             //           Serial1.print(" state = 3 ");  
+           //           Serial1.print(" state = 3 ");  
                         j++;
-             //           Serial1.print(" J == ");
-             //           Serial1.print(j, DEC);
+           //           Serial1.print(" J == ");
+           //           Serial1.print(j, DEC);
                         k++; 
-             //           Serial1.print(" K == ");
-             //           Serial1.print(k, DEC);
+           //           Serial1.print(" K == ");
+           //           Serial1.print(k, DEC);
                         state = 4;
                     }
+                    
                     if(3 + j > bufferSize + 2)
                         goto get_next_packet;
+                        
                     if(state == 4)
                     {
-             //           Serial1.print(" state = 4 ");
+           //           Serial1.print(" state = 4 ");
                         if(rxbuff[3 + j] == 0x0D && rxbuff[3 + j + 1] == 0x0A)
                         {
-             //               Serial1.print("\n EOL = ");
-             //               Serial1.print(rxbuff[3 + j], HEX);
-             //               Serial1.print(" ");
-             //               Serial1.print(rxbuff[3 + j + 1], HEX);
-             //               Serial1.print("\nJ = ");
-             //               Serial1.print(j, DEC);
-             //               Serial1.print("\n");
+       //                   Serial1.print("\n EOL = ");
+           //               Serial1.print(rxbuff[3 + j], HEX);
+           //               Serial1.print(" ");
+           //               Serial1.print(rxbuff[3 + j + 1], HEX);
+           //               Serial1.print("\nJ = ");
+           //               Serial1.print(j, DEC);
+           //               Serial1.print("\n");
                             j = j + 2;
                             state = 0;
                         }
@@ -1046,40 +1088,45 @@ start_reception:
                             continue;
                         }
                     }
-              //      Serial1.print("X = ");
-              //      Serial1.print(lineOfData[0], HEX);
-              //      Serial1.print("\n ");
+                    
+            //      Serial1.print("X = ");
+            //      Serial1.print(lineOfData[0], HEX);
+            //      Serial1.print("\n ");
                     getStatus = readHexFileAndWriteEEPROM();              // Read HEX record and write data to i2c EEPROM.  
-              //      Serial1.print("getStatus = ");
-              //      Serial1.print(getStatus, DEC);
-              //      Serial1.print("\n");   
-                }        
+            //      Serial1.print("getStatus = ");
+            //      Serial1.print(getStatus, DEC);
+            //      Serial1.print("\n");   
+                }  
+                      
 get_next_packet: 
-           //     Serial1.print("state = ");
-           //     Serial1.print(state, DEC);
-           //     Serial1.print(" J_EOF = ");
-           //     Serial1.print(j, DEC);
-           //     Serial1.print("\n");      
+         //     Serial1.print("state = ");
+         //     Serial1.print(state, DEC);
+         //     Serial1.print(" J_EOF = ");
+         //     Serial1.print(j, DEC);
+         //     Serial1.print("\n");      
                 ++packetNumber;
                 retrans = MAXRETRANS + 1;
-            }   
+            }
+               
             if(--retrans <= 0) 
             {
                 flushInput();
                 Serial.write(CAN);
                 Serial.write(CAN);
                 Serial.write(CAN);
-           //     Serial1.print("Error too many retries \n");
+         //     Serial1.print("Error too many retries \n");
                 delay(100);
                 digitalWrite(7, LOW);
                 return -3;                      // Too many retry errors.
             }
+            
             Serial.write(ACK);
-         //   Serial1.print(" ACK \n"); 
+       //   Serial1.print(" ACK \n"); 
             continue;
         }  
+        
 reject:
-    //    Serial1.print("CRC error\n");
+  //    Serial1.print("CRC error\n");
         flushInput();
         Serial.write(NAK);   
     }    
@@ -1088,6 +1135,7 @@ reject:
 void initTransmit(void)
 {
     int st;
+    
     Serial.print("\n Prepare your terminal emulator to receive data now...\n");
     st = xmodemTransmit();
     Serial.print("\n");
@@ -1108,6 +1156,7 @@ void initTransmit(void)
 void initReceive(void)
 {
     int st;
+    
     Serial.print("\n Send data using the xmodem protocol from your terminal emulator now...\n");
     st = xmodemReceive();
     Serial.print("\n\n\n\n");
@@ -1116,15 +1165,15 @@ void initReceive(void)
         Serial.print(" Xmodem receive error: status: ");
         Serial.print(st, DEC);
         Serial.print("\n");
-    //    Serial1.print("Error status = \n");
-    //    Serial1.print(st, DEC);
+  //    Serial1.print("Error status = \n");
+  //    Serial1.print(st, DEC);
     }
     else  
     {
         Serial.print(" Xmodem successfully received ");
         Serial.print(st, DEC);
-    //    Serial1.print("\n bytes = ");
-    //    Serial1.print(st, DEC);
+  //    Serial1.print("\n bytes = ");
+  //    Serial1.print(st, DEC);
     }
 }
 
@@ -1132,6 +1181,7 @@ void editEEPROM()
 {
     byte data, dataDigit1, dataDigit2, shiftBuff, i;
     boolean exitLoop = 0, editMode = 0;
+    
     Serial.print("\x1b[18;018f");  //Set cursor position.
     Serial.print("\x1b[0K");    // Clear line. 
     shiftBuffer = startAddress;
@@ -1156,10 +1206,13 @@ void editEEPROM()
                 editMode = 1;
                 shiftBuff = shiftBuff << 4;
                 data = int(receivedChar);
+                
                 if(data > 64 && data < 71)
                     data = data - 55;
+                    
                 if(data > 96 && data < 103)
                     data = data - 87;
+                    
                 data = data & 0x0F;
                 shiftBuff = shiftBuff | data;
                 dataDigit1 = shiftBuff >> 4;
@@ -1172,19 +1225,20 @@ void editEEPROM()
                 if(i > 0)
                 {
                     i = 0;
-                    digitalWrite(7, HIGH);
+                    digitalWrite(7, HIGH);                                // Turn LED ON to indicate a write.
                     writeEEPROM(startAddress, shiftBuff, deviceAddress);
-                    digitalWrite(7, LOW);
+                    digitalWrite(7, LOW);                                 // Turn LED OFF.
                 }
+                
                 i++;
             }  
             if(editMode == 0)
             {        
                 i = 0;   
-                if(receivedChar != 0x0D)    //Carriage return 
+                if(receivedChar != 0x0D)            //Carriage return 
                 {
-                    Serial.print("\x1b[18;018f");  //Set cursor position.
-                    Serial.print("\x1b[0K");    // Clear line. 
+                    Serial.print("\x1b[18;018f");   //Set cursor position.
+                    Serial.print("\x1b[0K");        // Clear line. 
                     shiftBuffer = startAddress;
                     shiftRightAndSplit();
                     displayHexDigits();
