@@ -1,4 +1,4 @@
-// i2C EEPROM Reader/Writer written by Nicholas Tate - September 2001 - March 2022.
+// i2C EEPROM Reader/Writer written by Nicholas Tate - September 2021 - March 2022.
 
 #include <stdlib.h>
 #include <Wire.h>
